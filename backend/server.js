@@ -3,55 +3,51 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const db = require('./db/queries');
-const fs = require('fs'); // Para verificar archivos
+const fs = require('fs');
 
-// Inicializar Express
+// ===========================================
+// 1. CONFIGURACIÓN INICIAL
+// ===========================================
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Middlewares esenciales
+// Middlewares
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ===========================================
-// 🔥 CONFIGURACIÓN CLAVE PARA RENDER.COM
+// 2. CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS (PUBLIC)
 // ===========================================
-const PUBLIC_PATH = path.join(__dirname, '../public'); // Ruta ABSOLUTA a /public
+const PUBLIC_PATH = path.join(__dirname, '../public');
 
-// Verificar si la carpeta "public" existe (evita errores ENOENT)
+// Verificación de carpeta public/
 if (!fs.existsSync(PUBLIC_PATH)) {
-  console.error('❌ ERROR: No se encuentra la carpeta "public/" en:', PUBLIC_PATH);
-  process.exit(1); // Detiene el servidor si no existe
+  console.error('❌ ERROR CRÍTICO: No se encuentra la carpeta public/ en:', PUBLIC_PATH);
+  process.exit(1);
 }
 
-// Servir archivos estáticos (HTML, CSS, JS, imágenes)
 app.use(express.static(PUBLIC_PATH));
 
 // ===========================================
-// 🚀 RUTAS DEL FRONTEND (para evitar "Cannot GET /")
+// 3. RUTAS DEL FRONTEND
 // ===========================================
 app.get('/', (req, res) => {
   res.sendFile(path.join(PUBLIC_PATH, 'index.html'), (err) => {
-    if (err) {
-      console.error('Error al cargar index.html:', err);
-      res.status(500).send('Error al cargar la página principal');
-    }
+    if (err) res.status(500).send('Error al cargar la página principal');
   });
 });
 
 app.get('/show-nicks', (req, res) => {
   res.sendFile(path.join(PUBLIC_PATH, 'show-nicks.html'), (err) => {
-    if (err) {
-      console.error('Error al cargar show-nicks.html:', err);
-      res.status(500).send('Error al cargar la página de nicks');
-    }
+    if (err) res.status(500).send('Error al cargar nicks');
   });
 });
 
 // ===========================================
-// 📡 ENDPOINTS DE LA API (tus rutas existentes)
+// 4. ENDPOINTS DE LA API (COMPLETOS)
 // ===========================================
+// 4.1 Guardar nick
 app.post('/api/nicks', async (req, res) => {
   try {
     const nick = await db.addNick(req.body.name);
@@ -67,6 +63,7 @@ app.post('/api/nicks', async (req, res) => {
   }
 });
 
+// 4.2 Obtener nick aleatorio
 app.get('/api/nicks/random', async (req, res) => {
   try {
     const result = await db.getRandomUnshownNick();
@@ -89,42 +86,63 @@ app.get('/api/nicks/random', async (req, res) => {
   }
 });
 
-// ... (Mantén tus otros endpoints aquí: reset, count, etc.)
+// 4.3 Reiniciar nicks mostrados
+app.post('/api/nicks/reset', async (req, res) => {
+  try {
+    await db.resetShownNicks();
+    const count = await db.getNicksCount();
+    res.json({ success: true, count });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+// 4.4 Contador de nicks
+app.get('/api/nicks/count', async (req, res) => {
+  try {
+    const count = await db.getNicksCount();
+    res.json({ success: true, count });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
 
 // ===========================================
-// 🛑 MANEJO DE ERRORES (evita crashes en producción)
+// 5. MANEJO DE ERRORES
 // ===========================================
 function handleError(res, err) {
-  console.error('⚠️ Error en la API:', err);
+  console.error('⚠️ Error:', err);
   const status = err.message === 'El nick ya existe' ? 400 : 500;
   res.status(status).json({ 
     success: false, 
-    error: err.message || 'Error interno del servidor'
+    error: err.message || 'Error interno' 
   });
 }
 
-// Ruta para 404 (si alguien accede a una ruta inexistente)
+// Ruta 404 (para cualquier otra ruta no definida)
 app.use((req, res) => {
   res.status(404).sendFile(path.join(PUBLIC_PATH, '404.html'));
 });
 
 // ===========================================
-// ⚡ INICIAR SERVIDOR (configuración para Render.com)
+// 6. INICIAR SERVIDOR (CONFIGURACIÓN RENDER)
 // ===========================================
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log('\n==================================');
-  console.log(`🚀 Servidor listo en http://localhost:${PORT}`);
-  console.log(`📂 Sirviendo archivos desde: ${PUBLIC_PATH}`);
-  console.log('==================================\n');
+  console.log(`
+==================================
+🚀 Servidor activo en puerto ${PORT}
+🔗 URLS:
+- Frontend: http://localhost:${PORT}
+- API Docs: http://localhost:${PORT}/api-docs
+==================================`);
 });
 
-// Capturar errores del servidor
+// Manejo de errores del servidor
 server.on('error', (err) => {
-  console.error('💥 ERROR CRÍTICO:', err);
-  process.exit(1); // Reinicia el servidor si hay un error fatal
+  console.error('💥 ERROR AL INICIAR:', err);
+  process.exit(1);
 });
 
-// Capturar promesas no manejadas
 process.on('unhandledRejection', (err) => {
   console.error('⚠️ Unhandled Rejection:', err);
 });
