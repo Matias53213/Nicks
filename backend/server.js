@@ -6,7 +6,7 @@ const db = require('./db/queries');
 
 // Configuración del servidor
 const app = express();
-const PORT = process.env.PORT || 10000; // Render usa 10000
+const PORT = 10000; // Render usa 10000
 
 // Middlewares (igual que en tu versión local)
 app.use(cors());
